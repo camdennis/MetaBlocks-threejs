@@ -1,11 +1,11 @@
-# Bloxorz Three.js Game
+# MetaBlocks Game
 
 ## Overview
-Bloxorz is a 3D puzzle game where players control a block to navigate through levels, overcoming obstacles and reaching the goal. This project utilizes Three.js for rendering the 3D environment.
+MetaBlocks is a 3D puzzle game where players control a block to navigate through levels, overcoming obstacles and reaching the goal. This project utilizes Three.js for rendering the 3D environment.
 
 ## Project Structure
 ```
-bloxorz-threejs
+MetaBlocks-threejs
 ├── src
 │   ├── index.js          # Entry point of the application
 │   ├── game
@@ -29,7 +29,7 @@ bloxorz-threejs
    ```
 2. Navigate to the project directory:
    ```
-   cd bloxorz-threejs
+   cd MetaBlocks-threejs
    ```
 3. Install the dependencies:
    ```
@@ -40,11 +40,5 @@ bloxorz-threejs
    npm start
    ```
 
-## Gameplay Mechanics
-- Use the arrow keys to move the block.
-- Navigate through the level to reach the goal.
-- Avoid falling off the edges and hitting obstacles.
-
-## Credits
-- Developed by [Your Name]
-- Inspired by the classic Bloxorz game.
+## Developed By
+- Developed by Cam Dennis
