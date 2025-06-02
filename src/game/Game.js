@@ -12,6 +12,7 @@ class Game {
         this.grid = [];
         this.buttons = [];
         this.buttonMap = [];
+        this.startPos = [];
     }
 
     start() {
@@ -37,7 +38,6 @@ class Game {
         this.grid = newArray;
         this.n += this.b * 2;
         this.m += this.b * 2;
-        console.log(this.grid);
         // Now create a transporter array:
         let numTransporters = 0;
         let transporterIndices = [];
@@ -45,7 +45,11 @@ class Game {
         let bridgeIndices = []
         for (let i = 0; i < this.n; i++) {
             for (let j = 0; j < this.m; j++) {
-                if (Math.floor(this.grid[i][j] / 100) === 1) {
+                if (this.grid[i][j] === 2) {
+                    this.start.x = i;
+                    this.start.y = j;
+                }
+                else if (Math.floor(this.grid[i][j] / 100) === 1) {
                     numTransporters++;
                     transporterIndices.push([i, j]);
                 }
