@@ -8,9 +8,10 @@ import { RoundedBoxGeometry } from 'three-stdlib';
 // import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 let scene, camera, renderer, game, playerBlock, starField;
+let newMove = false;
 const loader = new THREE.TextureLoader();
 const textures = {
-    start: loader.load('assets/textures/start.png'),
+    startTexture: loader.load('assets/textures/start.png'),
     end: loader.load('assets/textures/end.png'),
     plain1: loader.load('assets/textures/plain1.png'),
     plain2: loader.load('assets/textures/plain2.png'),
@@ -35,7 +36,7 @@ function getMaterialForCell(cellValue, parity) {
         return new THREE.MeshBasicMaterial({ map: textures.plain1 });
     }
     else if (cellValue === 2) {
-        return new THREE.MeshBasicMaterial({ map: textures.start });
+        return new THREE.MeshBasicMaterial({ map: textures.startTexture });
     }
     else if (cellValue === 3) {
         return new THREE.MeshBasicMaterial({ map: textures.end });
@@ -146,10 +147,10 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     game = new Game(scene, camera);
-    game.start();
+    game.begin();
 
     window.addEventListener('resize', onWindowResize, false);
-    renderGrid();0
+    renderGrid();
     // If your start position is in grid coordinates (i, j):
     const start = game.start || { x: Math.floor(game.m / 2), y: 0, z: Math.floor(game.n / 2) };
     // Convert grid coordinates to world coordinates:
@@ -159,6 +160,8 @@ function init() {
 
     playerBlock = new Block(scene, { x: blockX, y: blockY, z: blockZ }, game.b);
     playerBlock.createPlayerBlock();
+
+    setupPreviewRenderer();
 
     animate();
 }
@@ -206,31 +209,81 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
+
     if (starField) {
         starField.rotation.y += 0.001;
         starField.rotation.x += 0.0001;
     }
-    game.update();
     renderer.render(scene, camera);
 }
 
 window.addEventListener('keydown', (event) => {
     if (!playerBlock) return;
+    if (playerBlock.isAnimating) return;
+    let direction = null;
     const step = 1;
     switch(event.key) {
         case 'ArrowUp':
-            playerBlock.move('up');
+            direction = 'up';
             break;
         case 'ArrowDown':
-            playerBlock.move('down');
+            direction = 'down';
             break;
         case 'ArrowLeft':
-            playerBlock.move('left');
+            direction = 'left';
             break;
         case 'ArrowRight':
-            playerBlock.move('right');
+            direction = 'right';
             break;
     }
+    if (direction) {
+        playerBlock.move(direction, () => {
+            let statePos = playerBlock.getStateAndPosition();
+            statePos[1] += game.m / 2;
+            statePos[2] += game.n / 2;
+            game.update(statePos);
+        });
+    }
+    console.log(game.valid, game.start);
 });
 
-init();
+document.getElementById('startBtn').onclick = () => {
+    document.getElementById('menu').style.display = 'none';
+    previewActive = false;
+    init(); // or your game start logic
+};
+document.getElementById('restartBtn').onclick = () => {
+    document.getElementById('menu').style.display = 'none';
+    previewActive = false;
+    init(); // or your restart logic
+};
+
+let previewRenderer, previewCamera, previewActive = true;
+
+function setupPreviewRenderer() {
+    const previewCanvas = document.getElementById('previewCanvas');
+    previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, alpha: true, antialias: true });
+    previewRenderer.setClearColor(0x222233, 1);
+
+    previewCamera = new THREE.PerspectiveCamera(60, 300/200, 0.1, 1000);
+    previewCamera.position.set(4, 6, 8);
+    previewCamera.lookAt(0, 0, 0);
+
+    function animatePreview() {
+        if (!previewActive) return;
+        previewCamera.position.x = 8 * Math.sin(Date.now() * 0.0005);
+        previewCamera.position.z = 8 * Math.cos(Date.now() * 0.0005);
+        previewCamera.lookAt(0, 0, 0);
+
+        previewRenderer.render(scene, previewCamera);
+        requestAnimationFrame(animatePreview);
+    }
+    animatePreview();
+    previewActive = true;
+}
+// When starting the game, stop the preview animation
+document.getElementById('startBtn').onclick = () => {
+    document.getElementById('menu').style.display = 'none';
+    previewActive = false;
+    init(); // or your game start logic
+};

@@ -12,10 +12,10 @@ class Game {
         this.grid = [];
         this.buttons = [];
         this.buttonMap = [];
-        this.startPos = [];
+        this.start = { x: 0, y: 0 };
     }
 
-    start() {
+    begin() {
         this.isRunning = true;
         this.score = 0;
         this.loadLevel();
@@ -82,13 +82,44 @@ class Game {
 
     gameLoop() {
         if (this.isRunning) {
-            this.update();
             requestAnimationFrame(() => this.gameLoop());
         }
     }
 
-    update() {
+    checkOOB(currPos) {
+        let x = currPos[1];
+        let y = currPos[0];
+        // Check if the current position is out of bounds
+        console.log(x, y);
+        if (x < 0 || x >= this.n || y < 0 || y >= this.m) {
+            return false;
+        }
+        return true;    
+    }
+
+    checkValid(state, currPos) {
+        if (! this.checkOOB(currPos)) {
+            return false;
+        }
+        switch (state) {
+            case 0:
+//                return checkValid0(currPos, grid, buttons);
+                break;
+            case 1:
+//                return checkValid12(currPos, grid, buttons, b, true);
+                break;
+            case 2:
+//                return checkValid12(currPos, grid, buttons, b, false);
+                break;
+            default:
+                break;
+        }
+        return true;
+    }
+
+    update(statePos) {
         // Logic to update game state, handle user input, and check for collisions
+        this.valid = this.checkValid(statePos[0], statePos.slice(1));
     }
 
     end() {

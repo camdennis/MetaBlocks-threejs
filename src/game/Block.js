@@ -5,7 +5,7 @@ const tileSize = 1;
 const loader = new THREE.TextureLoader();
 const tileHeight = 0.15;
 const textures = {
-    block: loader.load('assets/textures/brick.png'),
+    block: loader.load('assets/textures/block.png'),
 };
 
 class Block {
@@ -14,6 +14,7 @@ class Block {
         this.position = { ...position }; // {x, y, z}
         this.b = b;
         this.state = 0; // 0: standing, 1: lying X, 2: lying Z
+        this.curr = { ...position };
 
         // Set up pivot and group
         this.pivot = new THREE.Object3D();
@@ -83,7 +84,7 @@ class Block {
         else if (this.state === 1) { dx = 1; }
         else { dz = 1; }
         for (let i = 0; i < this.b; i++) {
-            const geometry = new RoundedBoxGeometry(tileSize, tileSize, tileSize, 4, 0.05);
+            const geometry = new RoundedBoxGeometry(tileSize, tileSize, tileSize, 4, 0.3);
             const material = new THREE.MeshBasicMaterial({ map: textures.block });
             const cube = new THREE.Mesh(geometry, material);
             cube.position.set(i * dx, tileHeight + i * dy, i * dz); // y=0 for all cubes
@@ -118,7 +119,7 @@ class Block {
         requestAnimationFrame(animate);
     }
 
-    move(direction) {
+    move(direction, onComplete) {
         if (this.isAnimating) return;
         this.isAnimating = true;
         let nextState = [];
@@ -158,7 +159,13 @@ class Block {
             this.createPlayerBlock();
             this.updateTransforms();
             this.isAnimating = false;
+            if (onComplete) onComplete();
         });
+    }
+
+    getStateAndPosition() {
+        let statePos = [this.state, this.position.x, this.position.z];
+        return statePos
     }
 }
 
