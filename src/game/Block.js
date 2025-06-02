@@ -20,6 +20,7 @@ class Block {
         this.group = new THREE.Group();
         this.pivot.add(this.group);
         this.scene.add(this.pivot);
+        this.isAnimating = false;
 
         // Transitions (mp) and offsets
         this.mp = [
@@ -99,7 +100,7 @@ class Block {
     }
 
     animateMove(axis, angle, onComplete) {
-        const duration = 50;
+        const duration = 100;
         const start = performance.now();
         const initialRotation = this.pivot.rotation[axis];
         const targetRotation = initialRotation + angle;
@@ -118,6 +119,8 @@ class Block {
     }
 
     move(direction) {
+        if (this.isAnimating) return;
+        this.isAnimating = true;
         let nextState = [];
         let axis, angle;
         switch (direction) {
@@ -154,6 +157,7 @@ class Block {
             this.position.z += this.offsets[nextState[1]].y;
             this.createPlayerBlock();
             this.updateTransforms();
+            this.isAnimating = false;
         });
     }
 }
