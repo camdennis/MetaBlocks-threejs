@@ -3,97 +3,114 @@ import { RoundedBoxGeometry } from 'three-stdlib';
 
 const tileSize = 1;
 const loader = new THREE.TextureLoader();
-
+const tileHeight = 0.15;
 const textures = {
     block: loader.load('assets/textures/brick.png'),
-}
+};
 
 class Block {
     constructor(scene, position, b) {
         this.scene = scene;
-        this.position = position;
+        this.position = { ...position }; // {x, y, z}
         this.b = b;
-        this.state = 0;
+        this.state = 0; // 0: standing, 1: lying X, 2: lying Z
+
+        // Set up pivot and group
+        this.pivot = new THREE.Object3D();
         this.group = new THREE.Group();
-        this.scene.add(this.group);
-        this.states = Array.from({ length: 3 }, () =>
-        Array.from({ length: b }, () =>
-            Array.from({ length: b }, () =>
-                Array(b).fill(false)
-            )
-        )
-    );
-    // Initialize the states
-    for (let i = 0; i < b; i++) {
-        this.states[0][i][0][0] = true;
-        this.states[1][0][i][0] = true;
-        this.states[2][0][0][i] = true;
+        this.pivot.add(this.group);
+        this.scene.add(this.pivot);
+
+        // Transitions (mp) and offsets
+        this.mp = [
+            [ [1,0], [1,1], [2,2], [2,3] ],
+            [ [0,4], [0,5], [1,6], [1,7] ],
+            [ [2,8], [2,9], [0,10], [0,11] ]
+        ];
+        this.offsets = [
+            { x: 1, y: 0 },
+            { x: -b, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -b },
+            { x: b, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 },
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: b },
+            { x: 0, y: -1 }
+        ];
+
+        this.createPlayerBlock();
+        this.updateTransforms();
     }
 
-    // Transitions (mp)
-    this.mp = [
-        [ [1,0], [1,1], [2,2], [2,3] ],
-        [ [0,4], [0,5], [1,6], [1,7] ],
-        [ [2,8], [2,9], [0,10], [0,11] ]
-    ];
-        // Offsets
-    this.offsets = [
-        { x: 1, y: 0 },
-        { x: -b, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -b },
-        { x: b, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: b },
-        { x: 0, y: -1 }
-    ];
+    // Correct pivot calculation for Bloxorz
+    getPivotOffset(direction) {
+        const half = tileSize / 2;
+        const len = this.b * tileSize;
+        let offset = { x: 0, y: 0, z: 0 };
+
+        if (this.state === 0) { // standing
+            if (direction === 'up')    offset = { x: 0, y: tileHeight-half, z: -half };
+            if (direction === 'down')  offset = { x: 0, y: tileHeight-half, z: half };
+            if (direction === 'left')  offset = { x: -half, y: tileHeight-half, z: 0 };
+            if (direction === 'right') offset = { x: half, y: tileHeight-half, z: 0 };
+        } else if (this.state === 1) { // lying X
+            if (direction === 'up')    offset = { x: 0, y: tileHeight-half, z: -half };
+            if (direction === 'down')  offset = { x: 0, y: tileHeight-half, z: half };
+            if (direction === 'left')  offset = { x: -half, y: tileHeight-half, z: 0 };
+            if (direction === 'right') offset = { x: len - half, y: tileHeight-half, z: 0 };
+        } else { // lying Z
+            if (direction === 'up')    offset = { x: 0, y: tileHeight-half, z: -half };
+            if (direction === 'down')  offset = { x: 0, y: tileHeight-half, z: len - half };
+            if (direction === 'left')  offset = { x: -half, y: tileHeight-half, z: 0 };
+            if (direction === 'right') offset = { x: half, y: tileHeight-half, z: 0 };
+        }
+        return offset;
     }
 
     createPlayerBlock() {
-        this.blockMeshes = [];
-        let dx = 0; 
-        let dy = 0; 
-        let dz = 0;
-        if (this.state === 0) {
-            dy = 1;
-        }
-        else if (this.state === 1) {
-            dx = 1;
-        }
-        else {
-            dz = 1;
-        }
+        // Remove old cubes
         while (this.group.children.length) {
             this.group.remove(this.group.children[0]);
         }
+        // Stack cubes according to state
+        let dx = 0, dy = 0, dz = 0;
+        if (this.state === 0) { dy = 1; }
+        else if (this.state === 1) { dx = 1; }
+        else { dz = 1; }
         for (let i = 0; i < this.b; i++) {
             const geometry = new RoundedBoxGeometry(tileSize, tileSize, tileSize, 4, 0.05);
-            const material = new THREE.MeshBasicMaterial({ map: textures.block});
+            const material = new THREE.MeshBasicMaterial({ map: textures.block });
             const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(this.position.x + i * dx, i * dy, this.position.z + i * dz);
-            this.blockMeshes.push(cube);
+            cube.position.set(i * dx, tileHeight + i * dy, i * dz); // y=0 for all cubes
             this.group.add(cube);
         }
     }
 
+    updateTransforms() {
+        // Always center the pivot at the block's logical position
+        this.pivot.position.set(this.position.x, tileHeight, this.position.z);
+        this.group.position.set(0, 0, 0);
+        this.pivot.rotation.set(0, 0, 0);
+        this.group.rotation.set(0, 0, 0);
+    }
+
     animateMove(axis, angle, onComplete) {
-        const duration = 2000;
+        const duration = 50;
         const start = performance.now();
-        const initialRotation = this.group.rotation[axis];
+        const initialRotation = this.pivot.rotation[axis];
         const targetRotation = initialRotation + angle;
         const animate = (now) => {
             const elapsed = now - start;
             const t = Math.min(elapsed / duration, 1);
-            this.group.rotation[axis] = initialRotation + (targetRotation - initialRotation) * t;
+            this.pivot.rotation[axis] = initialRotation + (targetRotation - initialRotation) * t;
             if (t < 1) {
                 requestAnimationFrame(animate);
-            }
-            else {
-                this.group.rotation[axis] = targetRotation;
+            } else {
+                this.pivot.rotation[axis] = targetRotation;
                 if (onComplete) onComplete();
             }
         };
@@ -121,12 +138,22 @@ class Block {
                 axis = 'z'; angle = -Math.PI / 2;
                 break;
         }
+        // Set pivot to the correct edge before animating
+        const pivot = this.getPivotOffset(direction);
+        this.pivot.position.set(
+            this.position.x + pivot.x,
+            tileHeight + pivot.y,
+            this.position.z + pivot.z
+        );
+        this.group.position.set(-pivot.x, -pivot.y, -pivot.z);
+
         this.animateMove(axis, angle, () => {
+            // After animation, update state and position
             this.state = nextState[0];
             this.position.x += this.offsets[nextState[1]].x;
             this.position.z += this.offsets[nextState[1]].y;
             this.createPlayerBlock();
-            this.group.rotation.set(0, 0, 0);
+            this.updateTransforms();
         });
     }
 }
