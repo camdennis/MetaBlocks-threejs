@@ -13,6 +13,9 @@ class Game {
         this.buttons = [];
         this.buttonMap = [];
         this.start = { x: 0, y: 0 };
+        this.valid = true;
+        this.numButtons = 0;
+        this.solutionString = "";
     }
 
     begin() {
@@ -22,6 +25,11 @@ class Game {
         this.gameLoop();
     }
 
+    reset() {
+        this.score = 0;
+        this.buttons = Array(this.numButtons + 1).fill(false);
+    }
+
     loadLevel() {
         // Logic to load the level and initialize the block
         let layout = level.layout;
@@ -29,6 +37,7 @@ class Game {
         this.m = layout[0].length;
         // Now let's also get the b value
         this.b = level.b;
+        this.solutionString = level.solutionString;
         const newArray = Array.from({ length : this.n + 2 * this.b }, () => Array(this.m + 2 * this.b).fill(0));
         for (let i = 0; i < this.n; i++) {
             for (let j = 0; j < this.m; j++) {
@@ -41,7 +50,7 @@ class Game {
         // Now create a transporter array:
         let numTransporters = 0;
         let transporterIndices = [];
-        let numButtons = 0;
+        this.numButtons = 0;
         let bridgeIndices = []
         for (let i = 0; i < this.n; i++) {
             for (let j = 0; j < this.m; j++) {
@@ -54,15 +63,15 @@ class Game {
                     transporterIndices.push([i, j]);
                 }
                 else if (Math.floor(this.grid[i][j] / 100) === 2) {
-                    numButtons++;
+                    this.numButtons++;
                 }
                 else if (this.grid[i][j] < 0) {
                     bridgeIndices.push([((-this.grid[i][j]) % 200), i, j, (this.grid[i][j] < -200)]);
                 }
             }
         }
-        this.buttons = Array(numButtons + 1).fill(false);
-        this.buttonMap = Array(numButtons + 1).fill(null).map(() => []);
+        this.buttons = Array(this.numButtons + 1).fill(false);
+        this.buttonMap = Array(this.numButtons + 1).fill(null).map(() => []);
         for (const [k, i, j, t] of bridgeIndices) {
             this.buttonMap[k].push({ i, j, t });
         }
@@ -90,27 +99,87 @@ class Game {
         let x = currPos[1];
         let y = currPos[0];
         // Check if the current position is out of bounds
-        console.log(x, y);
-        if (x < 0 || x >= this.n || y < 0 || y >= this.m) {
+        if (x < 0 || x >= this.n + this.b || y < 0 || y >= this.m + this. b) {
             return false;
         }
         return true;    
     }
 
+    checkValid0(currPos) {
+        let x = currPos[1];
+        let y = currPos[0];
+        if (this.grid[x][y] == 4 || this.grid[x][y] == 0) {
+            return false;
+        }
+        if (this.grid[x][y] < 0) {
+            // Here's where it's actually interesting.
+            if (this.grid[x][y] < -200 && this.buttons[-this.grid[x][y] % 200]) {
+                return false;
+            }
+            if (this.grid[x][y] > -200 && !this.buttons[-this.grid[x][y]]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    checkValid12(currPos, isOne) {
+        let x = currPos[1];
+        let y = currPos[0];
+        let firstHalf = false;
+        let secondHalf = false;
+        for (let i = 0; i < this.b; i++) {
+            let val = this.grid[x + i * isOne][y + i * (! isOne)];
+            if (val == 0) {
+                continue;
+            }
+            if (val == 4) {
+                return false;
+            }
+            if (val == 1 || val == 2 || val == 3 || val > 99) {
+                if (i < Math.floor(this.b / 2)) {
+                    firstHalf = true;
+                }
+                else {
+                    secondHalf = true;
+                }
+                if (this.b % 2 && i == Math.floor(this.b / 2)) {
+                    firstHalf = true;
+                    secondHalf = true;
+                }
+            }
+            else if ((val < -200 && !this.buttons[-val % 200]) || (val > -200 && this.buttons[-val])) {
+                if (i < Math.floor(this.b / 2)) {
+                    firstHalf = true;
+                }
+                else {
+                    secondHalf = true;
+                }
+                if (this.b % 2 && i == Math.floor(this.b / 2)) {
+                    firstHalf = true;
+                    secondHalf = true;
+                }
+            }
+        }
+        if (! firstHalf || ! secondHalf) {
+            return false;
+        }
+        return true;
+    }
+
     checkValid(state, currPos) {
+        let x = currPos[1];
+        let y = currPos[0];
         if (! this.checkOOB(currPos)) {
             return false;
         }
         switch (state) {
             case 0:
-//                return checkValid0(currPos, grid, buttons);
-                break;
+                return this.checkValid0(currPos);
             case 1:
-//                return checkValid12(currPos, grid, buttons, b, true);
-                break;
+                return this.checkValid12(currPos, false);
             case 2:
-//                return checkValid12(currPos, grid, buttons, b, false);
-                break;
+                return this.checkValid12(currPos, true);
             default:
                 break;
         }
@@ -129,3 +198,4 @@ class Game {
 }
 
 export default Game;
+

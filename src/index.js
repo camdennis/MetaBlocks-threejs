@@ -9,6 +9,7 @@ import { RoundedBoxGeometry } from 'three-stdlib';
 
 let scene, camera, renderer, game, playerBlock, starField;
 let newMove = false;
+let moveCounter = 0;
 const loader = new THREE.TextureLoader();
 const textures = {
     startTexture: loader.load('assets/textures/start.png'),
@@ -54,7 +55,7 @@ function getMaterialForCell(cellValue, parity) {
         return new THREE.MeshBasicMaterial({ map: textures.button3 });
     }
     else if (cellValue === -201) {
-        if (!game.buttonMap[(-cellValue) % 200]) {
+        if (!game.buttons[(-cellValue) % 200]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated1 });
         }
         else {
@@ -62,7 +63,7 @@ function getMaterialForCell(cellValue, parity) {
         }
     }
     else if (cellValue === -202) {
-        if (!game.buttonMap[(-cellValue) % 200]) {
+        if (!game.buttons[(-cellValue) % 200]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated2 });
         }
         else {
@@ -70,7 +71,7 @@ function getMaterialForCell(cellValue, parity) {
         }
     }
     else if (cellValue === -203) {
-        if (!game.buttonMap[(-cellValue) % 200]) {
+        if (!game.buttons[(-cellValue) % 200]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated3 });
         }
         else {
@@ -78,7 +79,7 @@ function getMaterialForCell(cellValue, parity) {
         }
     }
     else if (cellValue === -1) {
-        if (game.buttonMap[(-cellValue)]) {
+        if (game.buttons[(-cellValue)]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated1 });
         }
         else {
@@ -86,7 +87,7 @@ function getMaterialForCell(cellValue, parity) {
         }
     }
     else if (cellValue === -2) {
-        if (game.buttonMap[(-cellValue)]) {
+        if (game.buttons[(-cellValue)]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated2 });
         }
         else {
@@ -94,7 +95,7 @@ function getMaterialForCell(cellValue, parity) {
         }
     }
     else if (cellValue === -3) {
-        if (game.buttonMap[(-cellValue)]) {
+        if (game.buttons[(-cellValue)]) {
             return new THREE.MeshBasicMaterial({ map: textures.buttonActivated3 });
         }
         else {
@@ -115,18 +116,28 @@ function getMaterialForCell(cellValue, parity) {
     }
 }
 
+let gridTiles = [];
+
 function renderGrid() {
     const tileSize = 1;
+    // Remove old tiles
+    for (let tile of gridTiles) {
+        scene.remove(tile);
+        tile.geometry.dispose();
+        tile.material.dispose();
+    }
+    gridTiles = [];
+
+    // Add new tiles
     for (let i = 0; i < game.n; i++) {
         for (let j = 0; j < game.m; j++) {
-            if (game.grid[i][j] == 0) {
-                continue;
-            }
+            if (game.grid[i][j] == 0) continue;
             const geometry = new RoundedBoxGeometry(tileSize, 0.3, tileSize, 4, 0.08);
             const material = getMaterialForCell(game.grid[i][j], (i + j) % 2);
             const tile = new THREE.Mesh(geometry, material);
             tile.position.set(j - game.m / 2, -0.25, i - game.n / 2);
             scene.add(tile);
+            gridTiles.push(tile);
         }
     }
 }
@@ -140,16 +151,18 @@ function init() {
     camera.position.set(centerX, 10, centerZ + 5);
     camera.lookAt(centerX, 0, centerZ);
 
+    if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+    }
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    // Add this line:
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
 
     game = new Game(scene, camera);
     game.begin();
 
-    window.addEventListener('resize', onWindowResize, false);
+//    window.addEventListener('resize', onWindowResize, false);
     renderGrid();
     // If your start position is in grid coordinates (i, j):
     const start = game.start || { x: Math.floor(game.m / 2), y: 0, z: Math.floor(game.n / 2) };
@@ -158,8 +171,8 @@ function init() {
     const blockY = 0.15; // slightly above the floor
     const blockZ = start.x - game.n / 2;
 
-    playerBlock = new Block(scene, { x: blockX, y: blockY, z: blockZ }, game.b);
-    playerBlock.createPlayerBlock();
+    playerBlock = new Block(scene, { x: blockX, y: blockY, z: blockZ }, game.n, game.m, game.b);
+    playerBlock.grid = game.grid;
 
     setupPreviewRenderer();
 
@@ -209,6 +222,14 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
+    if (! game.valid) {
+        playerBlock.dissolveBlock(500, () => {
+            playerBlock.reset();
+            game.reset();
+            renderGrid();
+            game.valid = true;
+        });
+    }
 
     if (starField) {
         starField.rotation.y += 0.001;
@@ -219,7 +240,7 @@ function animate() {
 
 window.addEventListener('keydown', (event) => {
     if (!playerBlock) return;
-    if (playerBlock.isAnimating) return;
+    if (playerBlock.isAnimating || playerBlock.isDissolving) return;
     let direction = null;
     const step = 1;
     switch(event.key) {
@@ -239,12 +260,22 @@ window.addEventListener('keydown', (event) => {
     if (direction) {
         playerBlock.move(direction, () => {
             let statePos = playerBlock.getStateAndPosition();
-            statePos[1] += game.m / 2;
-            statePos[2] += game.n / 2;
             game.update(statePos);
+            moveCounter++;
+            console.log(moveCounter);
+            if (game.buttons) {
+                if (playerBlock.activateButton(game.buttons)) {
+                    renderGrid();
+                }
+            }
+            if (game.transporters) {
+                playerBlock.transport(game.transporters);
+            }
+            if (playerBlock.checkWinState()) {
+                showWinScreen(moveCounter, game.solutionString.length);
+            }
         });
     }
-    console.log(game.valid, game.start);
 });
 
 document.getElementById('startBtn').onclick = () => {
@@ -257,10 +288,20 @@ document.getElementById('restartBtn').onclick = () => {
     previewActive = false;
     init(); // or your restart logic
 };
+document.getElementById('menuBtn').onclick = () => {
+    document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('menu').style.display = 'block';
+    previewActive = true;
+    setupPreviewRenderer();
+};
 
 let previewRenderer, previewCamera, previewActive = true;
 
 function setupPreviewRenderer() {
+    if (previewRenderer) {
+        previewRenderer.dispose();
+    }
+    previewActive = true; // Set before starting the loop
     const previewCanvas = document.getElementById('previewCanvas');
     previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, alpha: true, antialias: true });
     previewRenderer.setClearColor(0x222233, 1);
@@ -275,15 +316,17 @@ function setupPreviewRenderer() {
         previewCamera.position.z = 8 * Math.cos(Date.now() * 0.0005);
         previewCamera.lookAt(0, 0, 0);
 
+        previewRenderer.clear();
         previewRenderer.render(scene, previewCamera);
         requestAnimationFrame(animatePreview);
     }
     animatePreview();
-    previewActive = true;
 }
-// When starting the game, stop the preview animation
-document.getElementById('startBtn').onclick = () => {
-    document.getElementById('menu').style.display = 'none';
-    previewActive = false;
-    init(); // or your game start logic
-};
+
+function showWinScreen(moves, optimal) {
+    const winScreen = document.getElementById('winScreen');
+    const winStats = document.getElementById('winStats');
+    winStats.innerHTML = `You finished in <b>${moves}</b> moves.<br>Optimal: <b>${optimal}</b> moves.`;
+    winScreen.style.display = 'flex';
+    previewActive = false; // Stop preview animation if needed
+}
