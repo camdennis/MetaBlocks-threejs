@@ -142,7 +142,33 @@ function renderGrid() {
     }
 }
 
+function disposeScene(scene) {
+    // Recursively dispose all objects in the scene
+    scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(mat => mat.dispose && mat.dispose());
+            } else {
+                obj.material.dispose && obj.material.dispose();
+            }
+        }
+        // If you use textures, dispose them here as well
+        if (obj.texture) obj.texture.dispose();
+    });
+}
+
 function init() {
+    // Dispose old scene and renderer if they exist
+    if (scene) {
+        disposeScene(scene);
+    }
+    if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+        renderer.dispose();
+    }
+    game = null;
+    playerBlock = null;
     scene = new THREE.Scene();
     starField = addStarField();
     const centerX = game ? game.m / 2 : 0;
@@ -162,7 +188,7 @@ function init() {
     game = new Game(scene, camera);
     game.begin();
 
-//    window.addEventListener('resize', onWindowResize, false);
+    window.addEventListener('resize', onWindowResize, false);
     renderGrid();
     // If your start position is in grid coordinates (i, j):
     const start = game.start || { x: Math.floor(game.m / 2), y: 0, z: Math.floor(game.n / 2) };
@@ -273,6 +299,7 @@ window.addEventListener('keydown', (event) => {
             }
             if (playerBlock.checkWinState()) {
                 showWinScreen(moveCounter, game.solutionString.length);
+                moveCounter = 0;
             }
         });
     }
