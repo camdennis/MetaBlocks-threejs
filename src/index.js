@@ -8,7 +8,6 @@ import { RoundedBoxGeometry } from 'three-stdlib';
 // import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 let scene, camera, renderer, game, playerBlock, starField;
-let newMove = false;
 let moveCounter = 0;
 const loader = new THREE.TextureLoader();
 const textures = {
@@ -30,7 +29,6 @@ const textures = {
     teleporter3: loader.load('assets/textures/teleporter3.png'),
     dead: loader.load('assets/textures/dead.png')
 };
-
 
 function getMaterialForCell(cellValue, parity) {
     if (cellValue === 1 && parity) {
@@ -158,7 +156,7 @@ function disposeScene(scene) {
     });
 }
 
-function init() {
+async function init() {
     // Dispose old scene and renderer if they exist
     if (scene) {
         disposeScene(scene);
@@ -169,6 +167,7 @@ function init() {
     }
     game = null;
     playerBlock = null;
+    
     scene = new THREE.Scene();
     starField = addStarField();
     const centerX = game ? game.m / 2 : 0;
@@ -186,7 +185,9 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     game = new Game(scene, camera);
-    game.begin();
+    const dropboxURL = 'https://www.dropbox.com/scl/fi/cckpzc3xobuf3zxmnu558/level1.json?rlkey=to3n33jrei1rcjzlq2nqtwwa4&st=1witbtq8&dl=1';
+    game.url = dropboxURL;
+    await game.begin();
 
     window.addEventListener('resize', onWindowResize, false);
     renderGrid();
@@ -249,6 +250,9 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     if (! game.valid) {
+        const dissolveSound = new Audio('assets/sounds/dissolve.wav');
+        dissolveSound.volume = 0.2;
+        dissolveSound.play();
         playerBlock.dissolveBlock(500, () => {
             playerBlock.reset();
             game.reset();
@@ -285,6 +289,8 @@ window.addEventListener('keydown', (event) => {
     }
     if (direction) {
         playerBlock.move(direction, () => {
+            const moveSound = new Audio('assets/sounds/move.wav');
+            moveSound.play();
             let statePos = playerBlock.getStateAndPosition();
             game.update(statePos);
             moveCounter++;
@@ -308,7 +314,8 @@ window.addEventListener('keydown', (event) => {
 document.getElementById('startBtn').onclick = () => {
     document.getElementById('menu').style.display = 'none';
     previewActive = false;
-    init(); // or your game start logic
+    // Use previewN, previewM, previewB, previewDifficulty, previewLevel to initialize your game
+    init(previewN, previewM, previewB, previewDifficulty, previewLevel);
 };
 document.getElementById('restartBtn').onclick = () => {
     document.getElementById('menu').style.display = 'none';
@@ -322,29 +329,61 @@ document.getElementById('menuBtn').onclick = () => {
     setupPreviewRenderer();
 };
 
-let previewRenderer, previewCamera, previewActive = true;
+let previewScene, previewCamera, previewRenderer, previewBlock;
+let previewN = 5, previewM = 5, previewB = 1, previewDifficulty = 1, previewLevel = 1;
+
+function buildPreviewScene() {
+    if (previewScene) {
+        disposeScene(previewScene);
+        previewBlock = null;
+    }
+    previewScene = new THREE.Scene();
+
+    // Add a simple board preview
+    for (let i = 0; i < previewN; i++) {
+        for (let j = 0; j < previewM; j++) {
+            const geometry = new THREE.BoxGeometry(1, 0.3, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x8888aa });
+            const tile = new THREE.Mesh(geometry, material);
+            tile.position.set(j - previewM / 2 + 0.5, -0.25, i - previewN / 2 + 0.5);
+            previewScene.add(tile);
+        }
+    }
+
+    // Add a block preview
+    const blockGeometry = new THREE.BoxGeometry(1, previewB, 1);
+    const blockMaterial = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+    previewBlock = new THREE.Mesh(blockGeometry, blockMaterial);
+    previewBlock.position.set(0, previewB / 2, 0);
+    previewScene.add(previewBlock);
+
+    // Optionally: Add difficulty/level indicators (e.g., text or color)
+}
+
+let previewActive = true;
 
 function setupPreviewRenderer() {
-    if (previewRenderer) {
-        previewRenderer.dispose();
-    }
-    previewActive = true; // Set before starting the loop
+    if (previewRenderer) previewRenderer.dispose();
     const previewCanvas = document.getElementById('previewCanvas');
     previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, alpha: true, antialias: true });
     previewRenderer.setClearColor(0x222233, 1);
 
+    // Calculate the center of the preview board
+    const centerX = (previewM - 1);
+    const centerZ = (previewN - 1) / 2;
+
     previewCamera = new THREE.PerspectiveCamera(60, 300/200, 0.1, 1000);
-    previewCamera.position.set(4, 6, 8);
-    previewCamera.lookAt(0, 0, 0);
+    previewCamera.position.set(centerX + 4, 6, centerZ + 8);
+    previewCamera.lookAt(centerX, 0, centerZ);
 
     function animatePreview() {
-        if (!previewActive) return;
-        previewCamera.position.x = 8 * Math.sin(Date.now() * 0.0005);
-        previewCamera.position.z = 8 * Math.cos(Date.now() * 0.0005);
-        previewCamera.lookAt(0, 0, 0);
-
+        // Orbit around the center of the preview board
+        const t = Date.now() * 0.0005;
+        previewCamera.position.x = centerX + 8 * Math.sin(t);
+        previewCamera.position.z = centerZ + 8 * Math.cos(t);
+        previewCamera.lookAt(centerX, 0, centerZ);
         previewRenderer.clear();
-        previewRenderer.render(scene, previewCamera);
+        previewRenderer.render(previewScene, previewCamera);
         requestAnimationFrame(animatePreview);
     }
     animatePreview();
@@ -357,3 +396,30 @@ function showWinScreen(moves, optimal) {
     winScreen.style.display = 'flex';
     previewActive = false; // Stop preview animation if needed
 }
+
+function updatePreviewFromSliders() {
+    previewN = parseInt(document.getElementById('sliderN').value, 10);
+    previewM = parseInt(document.getElementById('sliderM').value, 10);
+    previewB = parseInt(document.getElementById('sliderB').value, 10);
+    previewDifficulty = parseInt(document.getElementById('sliderDifficulty').value, 10);
+    previewLevel = parseInt(document.getElementById('sliderLevel').value, 10);
+
+    // Update labels
+    document.getElementById('labelN').textContent = previewN;
+    document.getElementById('labelM').textContent = previewM;
+    document.getElementById('labelB').textContent = previewB;
+    document.getElementById('labelDifficulty').textContent = previewDifficulty;
+    document.getElementById('labelLevel').textContent = previewLevel;
+
+    // Rebuild the preview scene
+    buildPreviewScene();
+    setupPreviewRenderer();
+}
+
+['sliderN', 'sliderM', 'sliderB', 'sliderDifficulty', 'sliderLevel'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updatePreviewFromSliders);
+});
+
+// Initialize preview on page load or menu show
+buildPreviewScene();
+setupPreviewRenderer();

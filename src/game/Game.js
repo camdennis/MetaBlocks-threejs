@@ -1,5 +1,3 @@
-import level from '../assets/levels/level1.json';
-
 class Game {
     constructor() {
         this.isRunning = false;
@@ -16,11 +14,13 @@ class Game {
         this.valid = true;
         this.numButtons = 0;
         this.solutionString = "";
+        this.url = "";
     }
 
-    begin() {
+    async begin() {
         this.isRunning = true;
         this.score = 0;
+        await this.loadLevelFromDropbox();
         this.loadLevel();
         this.gameLoop();
     }
@@ -32,12 +32,12 @@ class Game {
 
     loadLevel() {
         // Logic to load the level and initialize the block
-        let layout = level.layout;
+        let layout = this.level.layout;
         this.n = layout.length;
         this.m = layout[0].length;
         // Now let's also get the b value
-        this.b = level.b;
-        this.solutionString = level.solutionString;
+        this.b = this.level.b;
+        this.solutionString = this.level.solutionString;
         const newArray = Array.from({ length : this.n + 2 * this.b }, () => Array(this.m + 2 * this.b).fill(0));
         for (let i = 0; i < this.n; i++) {
             for (let j = 0; j < this.m; j++) {
@@ -194,6 +194,14 @@ class Game {
     end() {
         this.isRunning = false;
         // Logic to handle end of game, display score, etc.
+    }
+
+    async loadLevelFromDropbox() {
+        const corsProxy = "https://corsproxy.io/?";
+        const proxiedUrl = corsProxy + encodeURIComponent(this.url);
+        const response = await fetch(proxiedUrl);
+        if (!response.ok) throw new Error('Failed to load level');
+        this.level = await response.json();
     }
 }
 
