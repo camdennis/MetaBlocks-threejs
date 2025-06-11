@@ -20,7 +20,7 @@ class Game {
     async begin() {
         this.isRunning = true;
         this.score = 0;
-        await this.loadLevelFromDropbox();
+        // load level here
         this.loadLevel();
         this.gameLoop();
     }
@@ -196,13 +196,6 @@ class Game {
         // Logic to handle end of game, display score, etc.
     }
 
-    async loadLevelFromDropbox() {
-        const corsProxy = "https://corsproxy.io/?";
-        const proxiedUrl = corsProxy + encodeURIComponent(this.url);
-        const response = await fetch(proxiedUrl);
-        if (!response.ok) throw new Error('Failed to load level');
-        this.level = await response.json();
-    }
 }
 
 export default Game;

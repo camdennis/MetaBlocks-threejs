@@ -6,9 +6,12 @@ import Block from './game/Block';
 import { RoundedBoxGeometry } from 'three-stdlib';
 // or if you use three/examples:
 // import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-
+let musicOff = false;
 let scene, camera, renderer, game, playerBlock, starField;
 let moveCounter = 0;
+let previewAnimationFrame = null;
+let levelData = null;
+
 const loader = new THREE.TextureLoader();
 const textures = {
     startTexture: loader.load('assets/textures/start.png'),
@@ -156,7 +159,7 @@ function disposeScene(scene) {
     });
 }
 
-async function init() {
+async function init(n, m, b, level) {
     // Dispose old scene and renderer if they exist
     if (scene) {
         disposeScene(scene);
@@ -172,8 +175,11 @@ async function init() {
     starField = addStarField();
     const centerX = game ? game.m / 2 : 0;
     const centerZ = game ? game.n / 2 : 0;
+    const maxDim = Math.max(game ? game.n : n, game ? game.m : m);
+    const zoomY = 8 + maxDim * 0.15; // Adjust these coefficients as needed
+    const zoomZ = 4 + maxDim * 0.35;
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(centerX, 10, centerZ + 5);
+    camera.position.set(centerX, zoomY, centerZ + zoomZ);
     camera.lookAt(centerX, 0, centerZ);
 
     if (renderer && renderer.domElement && renderer.domElement.parentNode) {
@@ -185,8 +191,8 @@ async function init() {
     document.body.appendChild(renderer.domElement);
 
     game = new Game(scene, camera);
-    const dropboxURL = 'https://www.dropbox.com/scl/fi/cckpzc3xobuf3zxmnu558/level1.json?rlkey=to3n33jrei1rcjzlq2nqtwwa4&st=1witbtq8&dl=1';
-    game.url = dropboxURL;
+    game.level = levelData;
+//    game.url = dropboxURL;
     await game.begin();
 
     window.addEventListener('resize', onWindowResize, false);
@@ -262,8 +268,8 @@ function animate() {
     }
 
     if (starField) {
-        starField.rotation.y += 0.001;
-        starField.rotation.x += 0.0001;
+        starField.rotation.y += 0.0001;
+        starField.rotation.x += 0.00001;
     }
     renderer.render(scene, camera);
 }
@@ -294,7 +300,7 @@ window.addEventListener('keydown', (event) => {
             let statePos = playerBlock.getStateAndPosition();
             game.update(statePos);
             moveCounter++;
-            console.log(moveCounter);
+//            console.log(moveCounter);
             if (game.buttons) {
                 if (playerBlock.activateButton(game.buttons)) {
                     renderGrid();
@@ -311,26 +317,92 @@ window.addEventListener('keydown', (event) => {
     }
 });
 
-document.getElementById('startBtn').onclick = () => {
+async function loadLevelAndStart(n, m, b, level) {
+    console.log(n, m, b, level);
+    try {
+        // Adjust the path as needed
+        const response = await fetch(`assets/levels/level_${level}.json`);
+        if (!response.ok) throw new Error('Level file not found');
+        const levels = await response.json();
+
+        // Find all matching levels
+        const matches = levels.filter(lvl => lvl.n === n && lvl.m === m && lvl.b === b);
+
+        if (matches.length === 0) {
+            // Play error sound and do not start game
+            const errorSound = new Audio('assets/sounds/error.mp3');
+            errorSound.volume = 0.5;
+            errorSound.play();
+            return false;
+        }
+
+        // Pick a random match
+        const chosen = matches[Math.floor(Math.random() * matches.length)];
+
+        // Parse layout if it's a string
+        let layout = chosen.layout;
+        if (typeof layout === "string") {
+            layout = JSON.parse(layout);
+        }
+        console.log("levelNum", chosen.fileNum);
+        // Set up the game object
+        levelData = {
+            layout: layout,
+            b: chosen.b,
+            solutionString: chosen.solutionString
+        };
+
+        // Now start the game as usual
+        await init(n, m, b, level);
+
+    } catch (e) {
+        // Play error sound if fetch or parsing fails
+        const errorSound = new Audio('assets/sounds/error.mp3');
+        errorSound.volume = 0.5;
+        errorSound.play();
+        console.error(e);
+        return false;
+    }
+    return true;
+}
+
+// Replace your startBtn handler with:
+document.getElementById('startBtn').onclick = async () => {
+    if (! await loadLevelAndStart(previewN, previewM, previewB, previewLevel)) {
+        return;
+    }
+    if (!musicOff) {
+        bgMusic.play();
+    }
     document.getElementById('menu').style.display = 'none';
     previewActive = false;
-    // Use previewN, previewM, previewB, previewDifficulty, previewLevel to initialize your game
-    init(previewN, previewM, previewB, previewDifficulty, previewLevel);
-};
-document.getElementById('restartBtn').onclick = () => {
-    document.getElementById('menu').style.display = 'none';
-    previewActive = false;
-    init(); // or your restart logic
+    if (previewAnimationFrame) {
+        cancelAnimationFrame(previewAnimationFrame);
+        previewAnimationFrame = null;
+    }
 };
 document.getElementById('menuBtn').onclick = () => {
     document.getElementById('winScreen').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     previewActive = true;
+    buildPreviewScene();
     setupPreviewRenderer();
+};
+document.getElementById('mainMenuBtn').onclick = function() {
+    document.getElementById('menu').style.display = 'block';
+    previewActive = true;
+    buildPreviewScene();
+    setupPreviewRenderer();
+};
+document.getElementById('rulesBtn').onclick = function() {
+    document.getElementById('rulesModal').style.display = 'flex';
+};
+document.getElementById('closeRulesBtn').onclick = function() {
+    document.getElementById('rulesModal').style.display = 'none';
 };
 
 let previewScene, previewCamera, previewRenderer, previewBlock;
-let previewN = 5, previewM = 5, previewB = 1, previewDifficulty = 1, previewLevel = 1;
+let previewN = 5, previewM = 10, previewB = 2, previewLevel = 1;
 
 function buildPreviewScene() {
     if (previewScene) {
@@ -369,22 +441,29 @@ function setupPreviewRenderer() {
     previewRenderer.setClearColor(0x222233, 1);
 
     // Calculate the center of the preview board
-    const centerX = (previewM - 1);
+    const centerX = (previewM - 1) / 2;
     const centerZ = (previewN - 1) / 2;
+    const blockY = previewB / 2;
 
     previewCamera = new THREE.PerspectiveCamera(60, 300/200, 0.1, 1000);
-    previewCamera.position.set(centerX + 4, 6, centerZ + 8);
-    previewCamera.lookAt(centerX, 0, centerZ);
 
     function animatePreview() {
+        if (!previewActive) return;
         // Orbit around the center of the preview board
         const t = Date.now() * 0.0005;
-        previewCamera.position.x = centerX + 8 * Math.sin(t);
-        previewCamera.position.z = centerZ + 8 * Math.cos(t);
-        previewCamera.lookAt(centerX, 0, centerZ);
+        const radius = 6 + Math.max(previewM, previewN);
+        previewCamera.position.x = centerX + radius * Math.sin(t);
+        previewCamera.position.z = centerZ + radius * Math.cos(t);
+        previewCamera.position.y = blockY + 3;
+        previewCamera.lookAt(centerX, blockY, centerZ);
         previewRenderer.clear();
         previewRenderer.render(previewScene, previewCamera);
         requestAnimationFrame(animatePreview);
+    }
+    previewActive = true;
+    if (previewAnimationFrame) {
+        cancelAnimationFrame(previewAnimationFrame);
+        previewAnimationFrame = null;
     }
     animatePreview();
 }
@@ -401,14 +480,12 @@ function updatePreviewFromSliders() {
     previewN = parseInt(document.getElementById('sliderN').value, 10);
     previewM = parseInt(document.getElementById('sliderM').value, 10);
     previewB = parseInt(document.getElementById('sliderB').value, 10);
-    previewDifficulty = parseInt(document.getElementById('sliderDifficulty').value, 10);
     previewLevel = parseInt(document.getElementById('sliderLevel').value, 10);
 
     // Update labels
     document.getElementById('labelN').textContent = previewN;
     document.getElementById('labelM').textContent = previewM;
     document.getElementById('labelB').textContent = previewB;
-    document.getElementById('labelDifficulty').textContent = previewDifficulty;
     document.getElementById('labelLevel').textContent = previewLevel;
 
     // Rebuild the preview scene
@@ -416,10 +493,71 @@ function updatePreviewFromSliders() {
     setupPreviewRenderer();
 }
 
-['sliderN', 'sliderM', 'sliderB', 'sliderDifficulty', 'sliderLevel'].forEach(id => {
+const sliderN = document.getElementById('sliderN');
+const sliderM = document.getElementById('sliderM');
+const labelN = document.getElementById('labelN');
+const labelM = document.getElementById('labelM');
+
+sliderN.addEventListener('input', () => {
+    let n = parseInt(sliderN.value, 10);
+    let m = parseInt(sliderM.value, 10);
+    if (n > m) {
+        // Set columns to next possible value above rows
+        let nextM = n;
+        if (nextM <= parseInt(sliderM.max, 10)) {
+            sliderM.value = nextM;
+            labelM.textContent = nextM;
+        } else {
+            // If can't increment columns, decrement rows
+            let prevN = m;
+            sliderN.value = prevN;
+            labelN.textContent = prevN;
+        }
+    }
+    labelN.textContent = sliderN.value;
+});
+
+sliderM.addEventListener('input', () => {
+    let n = parseInt(sliderN.value, 10);
+    let m = parseInt(sliderM.value, 10);
+    if (m < n) {
+        // Set rows to next possible value below columns
+        let prevN = m;
+        if (prevN >= parseInt(sliderN.min, 10)) {
+            sliderN.value = prevN;
+            labelN.textContent = prevN;
+        } else {
+            // If can't decrement rows, increment columns
+            let nextM = n + 5;
+            sliderM.value = nextM;
+            labelM.textContent = nextM;
+        }
+    }
+    labelM.textContent = sliderM.value;
+});
+
+['sliderN', 'sliderM', 'sliderB', 'sliderLevel'].forEach(id => {
     document.getElementById(id).addEventListener('input', updatePreviewFromSliders);
 });
 
 // Initialize preview on page load or menu show
 buildPreviewScene();
 setupPreviewRenderer();
+
+const bgMusic = document.getElementById('bgMusic');
+bgMusic.volume = 0.3; // Set volume (0.0 to 1.0)
+//bgMusic.play();       // Start playing (if not autoplayed)
+
+const musicToggleBtn = document.getElementById('musicToggleBtn');
+musicToggleBtn.onclick = function() {
+    if (musicToggleBtn.textContent == '🔊') {
+        bgMusic.pause();
+        musicToggleBtn.textContent = '🔇';
+        musicOff = true;
+    }
+    else {
+        bgMusic.play();
+        musicToggleBtn.textContent = '🔊';
+        musicOff = false;
+    }
+};
