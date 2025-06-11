@@ -344,7 +344,7 @@ async function loadLevelAndStart(n, m, b, level) {
         if (typeof layout === "string") {
             layout = JSON.parse(layout);
         }
-        console.log("levelNum", chosen.fileNum);
+        console.log("solution", chosen.solutionString);
         // Set up the game object
         levelData = {
             layout: layout,
@@ -375,25 +375,35 @@ document.getElementById('startBtn').onclick = async () => {
         bgMusic.play();
     }
     document.getElementById('menu').style.display = 'none';
+    document.getElementById('mainMenuBtn').style.display = 'inline-block';
+    document.getElementById('resumeBtn').style.display = 'none';
     previewActive = false;
     if (previewAnimationFrame) {
         cancelAnimationFrame(previewAnimationFrame);
         previewAnimationFrame = null;
     }
 };
+
 document.getElementById('menuBtn').onclick = () => {
     document.getElementById('winScreen').style.display = 'none';
-    document.getElementById('menu').style.display = 'block';
+    document.getElementById('menu').style.display = 'flex';
+    document.getElementById('mainMenuBtn').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'inline-block';
     previewActive = true;
     buildPreviewScene();
     setupPreviewRenderer();
 };
+
 document.getElementById('mainMenuBtn').onclick = function() {
-    document.getElementById('menu').style.display = 'block';
+    document.getElementById('menu').style.display = 'flex';
+    document.getElementById('mainMenuBtn').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'inline-block';
     previewActive = true;
     buildPreviewScene();
     setupPreviewRenderer();
 };
+
+//document.getElementById('mainMenuBtn').style.display = 'inline-block';
 document.getElementById('rulesBtn').onclick = function() {
     document.getElementById('rulesModal').style.display = 'flex';
 };
@@ -561,3 +571,17 @@ musicToggleBtn.onclick = function() {
         musicOff = false;
     }
 };
+
+document.getElementById('resumeBtn').onclick = function() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('mainMenuBtn').style.display = 'inline-block'; // <-- Add this line!
+    previewActive = false;
+    if (previewAnimationFrame) {
+        cancelAnimationFrame(previewAnimationFrame);
+        previewAnimationFrame = null;
+    }
+};
+
+// On initial load
+//document.getElementById('menu').style.display = 'block';
+document.getElementById('resumeBtn').style.display = 'none';

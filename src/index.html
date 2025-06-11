@@ -10,46 +10,59 @@
 </head>
 <body>
   <!-- Add this to your HTML file -->
-  <div id="menu" style="position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:10;">
-    <div style="
-      background:#222;
-      padding:2em;
-      border-radius:1em;
-      text-align:center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      max-width: 400px;
-      width: 100%;
-    ">
-      <h1>MetaBlocks</h1>
-      <div style="width:100%;">
-        <label>
-          Rows (n): <input type="range" id="sliderN" min="5" max="15" value="5" step="5">
-          <span id="labelN">5</span>
-        </label><br>
-        <label>
-          Columns (m): <input type="range" id="sliderM" min="5" max="15" value="10", step="5">
-          <span id="labelM">10</span>
-        </label><br>
-        <label>
-          Block Size (b): <input type="range" id="sliderB" min="2" max="5" value="2">
-          <span id="labelB">2</span>
-        </label><br>
-        <label>
-          Level: <input type="range" id="sliderLevel" min="1" max="5" value="1">
-          <span id="labelLevel">1</span>
-        </label><br>
-      </div>
-      <canvas id="previewCanvas" width="300" height="200" style="margin: 1em 0; border-radius:0.5em; display:block;"></canvas>
-      <button id="startBtn">Start Game</button>
-      <p style="font-size:0.9em; color:#aaa; margin-top:2em;">
-        Music: “Carefree” by Kevin MacLeod<br>
-        <a href="https://incompetech.com" target="_blank" style="color:#aaa;">incompetech.com</a><br>
-        Licensed under <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#aaa;">CC BY 4.0</a>
-      </p>
-    </div> <!-- end of menu inner div -->
-  </div>
+  <div id="menu" style="
+  position:fixed;
+  top:0;
+  left:0;
+  width:100vw;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,0.7);
+  z-index:10;
+">
+  <div style="
+    background:#222;
+    padding:2em;
+    border-radius:1em;
+    text-align:center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 400px;
+    width: 100%;
+    margin: 0; /* Remove any margin that might offset centering */
+  ">
+    <h1>MetaBlocks</h1>
+    <div style="width:100%;">
+      <label>
+        Rows (n): <input type="range" id="sliderN" min="5" max="15" value="5" step="5">
+        <span id="labelN">5</span>
+      </label><br>
+      <label>
+        Columns (m): <input type="range" id="sliderM" min="5" max="15" value="10" step="5">
+        <span id="labelM">10</span>
+      </label><br>
+      <label>
+        Block Size (b): <input type="range" id="sliderB" min="2" max="5" value="2">
+        <span id="labelB">2</span>
+      </label><br>
+      <label>
+        Level: <input type="range" id="sliderLevel" min="1" max="5" value="1">
+        <span id="labelLevel">1</span>
+      </label><br>
+    </div>
+    <canvas id="previewCanvas" width="300" height="200" style="margin: 1em 0; border-radius:0.5em; display:block;"></canvas>
+    <button id="startBtn">Start Game</button>
+    <button id="resumeBtn" style="margin-top:1em; display:none;">Resume</button>
+    <p style="font-size:0.9em; color:#aaa; margin-top:2em;">
+      Music: “Carefree” by Kevin MacLeod<br>
+      <a href="https://incompetech.com" target="_blank" style="color:#aaa;">incompetech.com</a><br>
+      Licensed under <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#aaa;">CC BY 4.0</a>
+    </p>
+  </div> <!-- end of menu inner div -->
+</div>
 
   <div id="winScreen" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); color:#fff; z-index:1000; text-align:center; justify-content:center; align-items:center; flex-direction:column; font-size:2em;">
     <div style="margin-top:20vh;">
@@ -101,7 +114,7 @@
 </div>
 
 <!-- Main Menu Button (always visible during gameplay) -->
-<button id="mainMenuBtn" style="position:fixed;top:1em;left:1em;z-index:20;">Main Menu</button>
+<button id="mainMenuBtn" style="position:fixed;top:1em;left:1em;z-index:20; display:none;">Main Menu</button>
 
 <!-- Background music -->
 <audio id="bgMusic" src="assets/sounds/background.mp3" loop></audio>
